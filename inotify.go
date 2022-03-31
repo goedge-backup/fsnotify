@@ -31,6 +31,8 @@ type Watcher struct {
 	paths    map[int]string    // Map of watched paths (key: watch descriptor)
 	done     chan struct{}     // Channel for sending a "quit message" to the reader goroutine
 	doneResp chan struct{}     // Channel to respond to Close
+
+	IgnoreNotExistFile bool
 }
 
 // NewWatcher establishes a new watcher with the underlying OS and begins waiting for events.
@@ -281,7 +283,7 @@ func (w *Watcher) readEvents() {
 			event := newEvent(name, mask)
 
 			// Send the events that are not ignored on the events channel
-			if !event.ignoreLinux(mask) {
+			if !event.ignoreLinux(mask, w.IgnoreNotExistFile) {
 				select {
 				case w.Events <- event:
 				case <-w.done:
@@ -298,7 +300,7 @@ func (w *Watcher) readEvents() {
 // Certain types of events can be "ignored" and not sent over the Events
 // channel. Such as events marked ignore by the kernel, or MODIFY events
 // against files that do not exist.
-func (e *Event) ignoreLinux(mask uint32) bool {
+func (e *Event) ignoreLinux(mask uint32, ignoreNotExistFile bool) bool {
 	// Ignore anything the inotify API says to ignore
 	if mask&unix.IN_IGNORED == unix.IN_IGNORED {
 		return true
@@ -309,7 +311,7 @@ func (e *Event) ignoreLinux(mask uint32) bool {
 	// *Note*: this was put in place because it was seen that a MODIFY
 	// event was sent after the DELETE. This ignores that MODIFY and
 	// assumes a DELETE will come or has come if the file doesn't exist.
-	if !(e.Op&Remove == Remove || e.Op&Rename == Rename) {
+	if ignoreNotExistFile && !(e.Op&Remove == Remove || e.Op&Rename == Rename) {
 		_, statErr := os.Lstat(e.Name)
 		return os.IsNotExist(statErr)
 	}
