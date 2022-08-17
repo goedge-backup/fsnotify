@@ -1,7 +1,7 @@
 module github.com/fsnotify/fsnotify
 
-go 1.16
+go 1.18
 
-require golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
+require golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab
 
 retract v1.5.0
